@@ -62,7 +62,7 @@ export default function JobDetailModal({
       const answer = await answerApplicationQuestion({ question, job, resume, profile });
       setAiAnswer(answer);
     } catch (e) {
-      setAiAnswer('Failed to generate answer. Check your OpenAI API key.');
+      setAiAnswer('Failed to generate answer. Check your Anthropic API key.');
     } finally {
       setIsGenerating(false);
     }
@@ -75,7 +75,7 @@ export default function JobDetailModal({
       const letter = await generateCoverLetter({ job, resume, profile });
       setCoverLetter(letter);
     } catch (e) {
-      setCoverLetter('Failed to generate cover letter. Check your OpenAI API key.');
+      setCoverLetter('Failed to generate cover letter. Check your Anthropic API key.');
     } finally {
       setIsGenerating(false);
     }
@@ -98,7 +98,7 @@ export default function JobDetailModal({
     >
       <View style={styles.container}>
         {/* Header */}
-        <LinearGradient colors={['#13131F', '#1C1C2E']} style={styles.header}>
+        <LinearGradient colors={['#F5FAF6', '#EDF7F0']} style={styles.header}>
           <View style={styles.headerContent}>
             <View style={styles.headerLeft}>
               <Text style={styles.headerTitle} numberOfLines={1}>{job.title}</Text>
@@ -294,7 +294,7 @@ function AITab({
         <Text style={styles.noAIEmoji}>🤖</Text>
         <Text style={styles.noAITitle}>AI Assistant Unavailable</Text>
         <Text style={styles.noAIText}>
-          Add your OpenAI API key in your .env file to enable AI-powered application answers.
+          Add your Anthropic API key in your profile to enable AI-powered application answers.
         </Text>
       </View>
     );
@@ -356,7 +356,7 @@ function CoverLetterTab({
       <View style={styles.noAI}>
         <Text style={styles.noAIEmoji}>📝</Text>
         <Text style={styles.noAITitle}>AI Required</Text>
-        <Text style={styles.noAIText}>Add an OpenAI API key to generate cover letters.</Text>
+        <Text style={styles.noAIText}>Add an Anthropic API key in your profile to generate cover letters.</Text>
       </View>
     );
   }

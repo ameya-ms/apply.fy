@@ -70,7 +70,7 @@ export default function SavedScreen() {
         onSave={() => {}}
         resume={resumeData}
         profile={userProfile}
-        hasAI={!!(userProfile?.openaiApiKey)}
+        hasAI={!!(userProfile?.anthropicApiKey)}
       />
     </SafeAreaView>
   );

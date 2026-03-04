@@ -11,8 +11,8 @@ export default function Index() {
 
   useEffect(() => {
     // Initialize AI if API key is available
-    if (userProfile?.openaiApiKey) {
-      initAI(userProfile.openaiApiKey);
+    if (userProfile?.anthropicApiKey) {
+      initAI(userProfile.anthropicApiKey);
     }
 
     const timer = setTimeout(() => {

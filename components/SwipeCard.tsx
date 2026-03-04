@@ -10,14 +10,13 @@ import {
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
-  useAnimatedGestureHandler,
   withSpring,
   withTiming,
   runOnJS,
   interpolate,
   Extrapolation,
 } from 'react-native-reanimated';
-import { PanGestureHandler, type PanGestureHandlerGestureEvent } from 'react-native-gesture-handler';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { Colors } from '../constants/colors';
@@ -42,6 +41,8 @@ export interface SwipeCardProps {
 export default function SwipeCard({ job, onSwipe, onPress, isTop, stackIndex }: SwipeCardProps) {
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
+  const startX = useSharedValue(0);
+  const startY = useSharedValue(0);
 
   const triggerHaptic = useCallback((direction: SwipeDirection) => {
     const style =
@@ -61,44 +62,48 @@ export default function SwipeCard({ job, onSwipe, onPress, isTop, stackIndex }: 
     [onSwipe, triggerHaptic]
   );
 
-  const gestureHandler = useAnimatedGestureHandler<
-    PanGestureHandlerGestureEvent,
-    { startX: number; startY: number }
-  >({
-    onStart: (_, ctx) => {
-      ctx.startX = translateX.value;
-      ctx.startY = translateY.value;
-    },
-    onActive: (event, ctx) => {
-      translateX.value = ctx.startX + event.translationX;
-      translateY.value = ctx.startY + event.translationY;
-    },
-    onEnd: (event) => {
-      const isSwipeRight =
-        event.translationX > SWIPE_THRESHOLD || event.velocityX > VELOCITY_THRESHOLD;
-      const isSwipeLeft =
-        event.translationX < -SWIPE_THRESHOLD || event.velocityX < -VELOCITY_THRESHOLD;
-      const isSwipeUp =
-        event.translationY < -VERTICAL_THRESHOLD || event.velocityY < -VELOCITY_THRESHOLD;
+  const gesture = Gesture.Pan()
+    .onStart(() => {
+      startX.value = translateX.value;
+      startY.value = translateY.value;
+    })
+    .onUpdate((e) => {
+      translateX.value = startX.value + e.translationX;
+      translateY.value = startY.value + e.translationY;
+    })
+    .onEnd((e) => {
+      // Determine dominant axis to prevent diagonal mis-detection
+      const absX = Math.abs(e.translationX);
+      const absY = Math.abs(e.translationY);
+      const isMovingUp = e.translationY < 0;
+      const isDominantlyVertical = isMovingUp && absY > absX * 0.5;
 
-      if (isSwipeRight && !isSwipeUp) {
-        translateX.value = withTiming(SCREEN_WIDTH * 1.5, { duration: 350 });
-        translateY.value = withTiming(event.translationY * 0.5, { duration: 350 });
-        runOnJS(handleSwipe)('right');
-      } else if (isSwipeLeft && !isSwipeUp) {
-        translateX.value = withTiming(-SCREEN_WIDTH * 1.5, { duration: 350 });
-        translateY.value = withTiming(event.translationY * 0.5, { duration: 350 });
-        runOnJS(handleSwipe)('left');
-      } else if (isSwipeUp) {
+      const isSwipeUp =
+        isDominantlyVertical &&
+        (e.translationY < -VERTICAL_THRESHOLD || e.velocityY < -VELOCITY_THRESHOLD);
+      const isSwipeRight =
+        !isDominantlyVertical &&
+        (e.translationX > SWIPE_THRESHOLD || e.velocityX > VELOCITY_THRESHOLD);
+      const isSwipeLeft =
+        !isDominantlyVertical &&
+        (e.translationX < -SWIPE_THRESHOLD || e.velocityX < -VELOCITY_THRESHOLD);
+
+      if (isSwipeUp) {
         translateY.value = withTiming(-SCREEN_HEIGHT, { duration: 350 });
         runOnJS(handleSwipe)('up');
+      } else if (isSwipeRight) {
+        translateX.value = withTiming(SCREEN_WIDTH * 1.5, { duration: 350 });
+        translateY.value = withTiming(e.translationY * 0.5, { duration: 350 });
+        runOnJS(handleSwipe)('right');
+      } else if (isSwipeLeft) {
+        translateX.value = withTiming(-SCREEN_WIDTH * 1.5, { duration: 350 });
+        translateY.value = withTiming(e.translationY * 0.5, { duration: 350 });
+        runOnJS(handleSwipe)('left');
       } else {
-        // Spring back
         translateX.value = withSpring(0, { damping: 15, stiffness: 150 });
         translateY.value = withSpring(0, { damping: 15, stiffness: 150 });
       }
-    },
-  });
+    });
 
   // ─── Animated Styles ─────────────────────────────────────────────────────
 
@@ -110,7 +115,6 @@ export default function SwipeCard({ job, onSwipe, onPress, isTop, stackIndex }: 
       Extrapolation.CLAMP
     );
 
-    // Behind cards: scale up as top card is dragged
     if (!isTop) {
       const drag = Math.abs(translateX.value) / SCREEN_WIDTH;
       const scaleBase = 1 - stackIndex * 0.04;
@@ -120,12 +124,16 @@ export default function SwipeCard({ job, onSwipe, onPress, isTop, stackIndex }: 
       const translateYBase = stackIndex * 12;
       const translateYDelta = -stackIndex * 12 * drag;
 
+      // More distinct opacity per stack position: 0.85 → 0.65 → 0.45
+      const opacityBase = interpolate(stackIndex, [1, 3], [0.85, 0.45], Extrapolation.CLAMP);
+      const opacityDelta = (1 - opacityBase) * drag * 0.5;
+
       return {
         transform: [
           { scale },
           { translateY: translateYBase + translateYDelta },
         ],
-        opacity: interpolate(stackIndex, [0, 3], [1, 0.6]),
+        opacity: Math.min(1, opacityBase + opacityDelta),
       };
     }
 
@@ -173,7 +181,7 @@ export default function SwipeCard({ job, onSwipe, onPress, isTop, stackIndex }: 
     <Animated.View style={[styles.card, cardStyle]}>
       {/* Company Logo / Gradient Header */}
       <LinearGradient
-        colors={['#1C1C2E', '#252540', '#1C1C2E']}
+        colors={['#EDF7F0', '#F5FAF6', '#EDF7F0']}
         style={styles.cardHeader}
       >
         {job.companyLogo ? (
@@ -230,16 +238,16 @@ export default function SwipeCard({ job, onSwipe, onPress, isTop, stackIndex }: 
       </View>
 
       {/* Swipe Overlays */}
-      <Animated.View style={[styles.overlay, styles.applyOverlay, applyOverlayStyle]}>
-        <Text style={styles.overlayText}>APPLY</Text>
+      <Animated.View style={[styles.overlay, styles.saveOverlay, applyOverlayStyle]}>
+        <Text style={styles.overlayText}>SAVE</Text>
       </Animated.View>
 
       <Animated.View style={[styles.overlay, styles.skipOverlay, skipOverlayStyle]}>
         <Text style={styles.overlayText}>SKIP</Text>
       </Animated.View>
 
-      <Animated.View style={[styles.overlay, styles.saveOverlay, saveOverlayStyle]}>
-        <Text style={styles.overlayText}>SAVE</Text>
+      <Animated.View style={[styles.overlay, styles.applyOverlay, saveOverlayStyle]}>
+        <Text style={styles.overlayText}>APPLY</Text>
       </Animated.View>
     </Animated.View>
   );
@@ -247,9 +255,9 @@ export default function SwipeCard({ job, onSwipe, onPress, isTop, stackIndex }: 
   if (!isTop) return card;
 
   return (
-    <PanGestureHandler onGestureEvent={gestureHandler}>
+    <GestureDetector gesture={gesture}>
       {card}
-    </PanGestureHandler>
+    </GestureDetector>
   );
 }
 
@@ -437,9 +445,9 @@ const styles = StyleSheet.create({
   overlayText: {
     fontSize: 42,
     fontWeight: '900',
-    color: Colors.textPrimary,
+    color: Colors.textInverse,
     letterSpacing: 4,
-    textShadowColor: 'rgba(0,0,0,0.5)',
+    textShadowColor: 'rgba(0,0,0,0.3)',
     textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 4,
   },

@@ -1,6 +1,6 @@
 import * as SecureStore from 'expo-secure-store';
 import * as FileSystem from 'expo-file-system';
-import type { UserProfile } from '../types';
+import type { UserProfile, ResumeData } from '../types';
 
 const PROFILE_KEY = 'user_profile_v1';
 const ENV_CONTENT_KEY = 'env_content_v1';
@@ -24,6 +24,62 @@ export async function loadProfile(): Promise<UserProfile | null> {
 export async function clearProfile(): Promise<void> {
   await SecureStore.deleteItemAsync(PROFILE_KEY);
   await SecureStore.deleteItemAsync(ENV_CONTENT_KEY);
+  const infoDir = `${FileSystem.documentDirectory}info/`;
+  const info = await FileSystem.getInfoAsync(infoDir);
+  if (info.exists) {
+    await FileSystem.deleteAsync(infoDir, { idempotent: true });
+  }
+}
+
+// ─── Info Folder Helpers ───────────────────────────────────────────────────────
+
+const INFO_DIR = `${FileSystem.documentDirectory}info/`;
+
+export async function saveResumeJSON(data: ResumeData): Promise<void> {
+  await FileSystem.makeDirectoryAsync(INFO_DIR, { intermediates: true });
+  await FileSystem.writeAsStringAsync(
+    `${INFO_DIR}resume.json`,
+    JSON.stringify(data, null, 2),
+    { encoding: FileSystem.EncodingType.UTF8 }
+  );
+}
+
+export async function loadResumeJSON(): Promise<ResumeData | null> {
+  const path = `${INFO_DIR}resume.json`;
+  const info = await FileSystem.getInfoAsync(path);
+  if (!info.exists) return null;
+  try {
+    const raw = await FileSystem.readAsStringAsync(path, { encoding: FileSystem.EncodingType.UTF8 });
+    return JSON.parse(raw) as ResumeData;
+  } catch {
+    return null;
+  }
+}
+
+export async function saveProfileEnvFile(profile: UserProfile): Promise<string> {
+  await FileSystem.makeDirectoryAsync(INFO_DIR, { intermediates: true });
+  const lines = [
+    '# apply.fy profile — generated automatically',
+    `NAME_name=${profile.name}`,
+    `NAME_email=${profile.email}`,
+    profile.phone ? `NAME_phone=${profile.phone}` : '',
+    profile.linkedinUrl ? `NAME_linkedin_url=${profile.linkedinUrl}` : '',
+    profile.githubUrl ? `NAME_github_url=${profile.githubUrl}` : '',
+    profile.portfolioUrl ? `NAME_portfolio_url=${profile.portfolioUrl}` : '',
+    profile.skills.length > 0 ? `NAME_skills=${profile.skills.join(',')}` : '',
+    `NAME_years_experience=${profile.yearsExperience}`,
+    profile.preferredRoles.length > 0 ? `NAME_preferred_roles=${profile.preferredRoles.join(',')}` : '',
+    profile.preferredLocations.length > 0 ? `NAME_preferred_locations=${profile.preferredLocations.join(',')}` : '',
+    `NAME_remote_preference=${profile.remotePreference}`,
+    profile.salaryMin ? `NAME_salary_min=${profile.salaryMin}` : '',
+    profile.salaryMax ? `NAME_salary_max=${profile.salaryMax}` : '',
+    profile.anthropicApiKey ? `NAME_anthropic_api_key=${profile.anthropicApiKey}` : '',
+    profile.jsearchApiKey ? `NAME_jsearch_api_key=${profile.jsearchApiKey}` : '',
+  ].filter(Boolean);
+  const content = lines.join('\n') + '\n';
+  const path = `${INFO_DIR}profile.env`;
+  await FileSystem.writeAsStringAsync(path, content, { encoding: FileSystem.EncodingType.UTF8 });
+  return path;
 }
 
 // ─── .env File Parser ─────────────────────────────────────────────────────────
@@ -60,40 +116,44 @@ export function parseEnvFile(content: string): UserProfile {
 }
 
 function buildProfileFromEnv(env: Record<string, string>): UserProfile {
+  // Support both NAME_key format (new) and LEGACY_KEY format (old .env imports)
+  const get = (nameKey: string, legacyKey: string): string | undefined =>
+    env[`NAME_${nameKey}`] ?? env[legacyKey] ?? undefined;
+
   const parseList = (val?: string): string[] =>
     val ? val.split(',').map((s) => s.trim()).filter(Boolean) : [];
 
   const parseNumber = (val?: string): number | undefined => {
     if (!val) return undefined;
-    const n = parseInt(val, 10);
+    const n = parseInt(val.replace(/[^0-9]/g, ''), 10);
     return isNaN(n) ? undefined : n;
   };
 
-  const remoteRaw = env['REMOTE_PREFERENCE']?.toLowerCase() ?? 'any';
+  const remoteRaw = (get('remote_preference', 'REMOTE_PREFERENCE') ?? 'any').toLowerCase();
   const remotePreference =
     remoteRaw === 'remote' || remoteRaw === 'hybrid' || remoteRaw === 'onsite'
       ? (remoteRaw as 'remote' | 'hybrid' | 'onsite')
       : 'any';
 
   return {
-    name: env['NAME'] ?? '',
-    email: env['EMAIL'] ?? '',
-    phone: env['PHONE'] ?? '',
-    linkedinUrl: env['LINKEDIN_URL'] ?? undefined,
-    portfolioUrl: env['PORTFOLIO_URL'] ?? undefined,
-    githubUrl: env['GITHUB_URL'] ?? undefined,
-    resumeTexPath: env['RESUME_TEX_PATH'] ?? undefined,
-    skills: parseList(env['SKILLS']),
-    yearsExperience: parseNumber(env['YEARS_EXPERIENCE']) ?? 0,
-    preferredRoles: parseList(env['PREFERRED_ROLES']),
-    preferredLocations: parseList(env['PREFERRED_LOCATIONS']),
-    salaryMin: parseNumber(env['SALARY_MIN']),
-    salaryMax: parseNumber(env['SALARY_MAX']),
+    name: get('name', 'NAME') ?? '',
+    email: get('email', 'EMAIL') ?? '',
+    phone: get('phone', 'PHONE') ?? '',
+    linkedinUrl: get('linkedin_url', 'LINKEDIN_URL'),
+    portfolioUrl: get('portfolio_url', 'PORTFOLIO_URL'),
+    githubUrl: get('github_url', 'GITHUB_URL'),
+    resumeTexPath: get('resume_tex_path', 'RESUME_TEX_PATH'),
+    skills: parseList(get('skills', 'SKILLS')),
+    yearsExperience: parseNumber(get('years_experience', 'YEARS_EXPERIENCE')) ?? 0,
+    preferredRoles: parseList(get('preferred_roles', 'PREFERRED_ROLES')),
+    preferredLocations: parseList(get('preferred_locations', 'PREFERRED_LOCATIONS')),
+    salaryMin: parseNumber(get('salary_min', 'SALARY_MIN')),
+    salaryMax: parseNumber(get('salary_max', 'SALARY_MAX')),
     remotePreference,
-    openaiApiKey: env['OPENAI_API_KEY'] ?? undefined,
-    jsearchApiKey: env['JSEARCH_API_KEY'] ?? undefined,
-    museApiKey: env['MUSE_API_KEY'] ?? undefined,
-    backendUrl: env['BACKEND_URL'] ?? undefined,
+    anthropicApiKey: get('anthropic_api_key', 'ANTHROPIC_API_KEY'),
+    jsearchApiKey: get('jsearch_api_key', 'JSEARCH_API_KEY'),
+    museApiKey: get('muse_api_key', 'MUSE_API_KEY'),
+    backendUrl: get('backend_url', 'BACKEND_URL'),
   };
 }
 
@@ -137,7 +197,7 @@ export function validateProfile(profile: UserProfile): ProfileValidation {
   if (!profile.email?.trim()) errors.push('Email is required');
   if (profile.email && !isValidEmail(profile.email)) errors.push('Invalid email format');
   if (!profile.phone?.trim()) warnings.push('Phone number missing (needed for some applications)');
-  if (!profile.openaiApiKey) warnings.push('No OpenAI API key — AI features disabled');
+  if (!profile.anthropicApiKey) warnings.push('No Anthropic API key — AI features disabled');
   if (!profile.jsearchApiKey && !profile.museApiKey) {
     warnings.push('No job API keys — using demo jobs only');
   }

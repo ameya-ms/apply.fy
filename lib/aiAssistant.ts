@@ -1,16 +1,16 @@
-import OpenAI from 'openai';
+import Anthropic from '@anthropic-ai/sdk';
 import type { ResumeData, UserProfile, Job } from '../types';
 import { buildResumeContext } from './resumeParser';
 
 // ─── Client Factory ──────────────────────────────────────────────────────────
 
-let client: OpenAI | null = null;
+let client: Anthropic | null = null;
 
 export function initAI(apiKey: string): void {
-  client = new OpenAI({ apiKey, dangerouslyAllowBrowser: true });
+  client = new Anthropic({ apiKey, dangerouslyAllowBrowser: true });
 }
 
-function getClient(): OpenAI {
+function getClient(): Anthropic {
   if (!client) throw new Error('AI not initialized. Call initAI(apiKey) first.');
   return client;
 }
@@ -51,17 +51,15 @@ Application Question: "${question}"
 
 Write my answer:`;
 
-  const response = await getClient().chat.completions.create({
-    model: 'gpt-4o-mini',
-    messages: [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: userPrompt },
-    ],
+  const response = await getClient().messages.create({
+    model: 'claude-haiku-4-5',
     max_tokens: 400,
-    temperature: 0.7,
+    system: systemPrompt,
+    messages: [{ role: 'user', content: userPrompt }],
   });
 
-  return response.choices[0]?.message?.content?.trim() ?? '';
+  const block = response.content[0];
+  return block?.type === 'text' ? block.text.trim() : '';
 }
 
 // ─── Cover Letter ────────────────────────────────────────────────────────────
@@ -101,14 +99,14 @@ Requirements:
 
 Format as plain text, ready to copy-paste. Include placeholders [DATE] and [HIRING MANAGER] where appropriate.`;
 
-  const response = await getClient().chat.completions.create({
-    model: 'gpt-4o-mini',
-    messages: [{ role: 'user', content: prompt }],
+  const response = await getClient().messages.create({
+    model: 'claude-haiku-4-5',
     max_tokens: 600,
-    temperature: 0.7,
+    messages: [{ role: 'user', content: prompt }],
   });
 
-  return response.choices[0]?.message?.content?.trim() ?? '';
+  const block = response.content[0];
+  return block?.type === 'text' ? block.text.trim() : '';
 }
 
 // ─── Job Match Score ─────────────────────────────────────────────────────────
@@ -133,16 +131,16 @@ DESCRIPTION: ${job.description.slice(0, 400)}
 
 Evaluate: skill match, experience level, role alignment. Be honest and concise.`;
 
-  const response = await getClient().chat.completions.create({
-    model: 'gpt-4o-mini',
-    messages: [{ role: 'user', content: prompt }],
+  const response = await getClient().messages.create({
+    model: 'claude-haiku-4-5',
     max_tokens: 200,
-    temperature: 0.3,
-    response_format: { type: 'json_object' },
+    messages: [{ role: 'user', content: prompt }],
   });
 
   try {
-    const parsed = JSON.parse(response.choices[0]?.message?.content ?? '{}');
+    const block = response.content[0];
+    const text = block?.type === 'text' ? block.text : '{}';
+    const parsed = JSON.parse(text);
     return {
       score: Math.max(0, Math.min(100, parsed.score ?? 50)),
       reasons: parsed.reasons ?? [],
@@ -150,6 +148,69 @@ Evaluate: skill match, experience level, role alignment. Be honest and concise.`
   } catch {
     return { score: 50, reasons: [] };
   }
+}
+
+// ─── Location Helpers ────────────────────────────────────────────────────────
+
+const STATE_FULL_TO_ABBREV: Record<string, string> = {
+  alabama: 'al', alaska: 'ak', arizona: 'az', arkansas: 'ar',
+  california: 'ca', colorado: 'co', connecticut: 'ct', delaware: 'de',
+  florida: 'fl', georgia: 'ga', hawaii: 'hi', idaho: 'id',
+  illinois: 'il', indiana: 'in', iowa: 'ia', kansas: 'ks',
+  kentucky: 'ky', louisiana: 'la', maine: 'me', maryland: 'md',
+  massachusetts: 'ma', michigan: 'mi', minnesota: 'mn', mississippi: 'ms',
+  missouri: 'mo', montana: 'mt', nebraska: 'ne', nevada: 'nv',
+  'new hampshire': 'nh', 'new jersey': 'nj', 'new mexico': 'nm', 'new york': 'ny',
+  'north carolina': 'nc', 'north dakota': 'nd', ohio: 'oh', oklahoma: 'ok',
+  oregon: 'or', pennsylvania: 'pa', 'rhode island': 'ri', 'south carolina': 'sc',
+  'south dakota': 'sd', tennessee: 'tn', texas: 'tx', utah: 'ut',
+  vermont: 'vt', virginia: 'va', washington: 'wa', 'west virginia': 'wv',
+  wisconsin: 'wi', wyoming: 'wy', 'district of columbia': 'dc',
+};
+
+const STATE_ABBREV_TO_FULL: Record<string, string> = Object.fromEntries(
+  Object.entries(STATE_FULL_TO_ABBREV).map(([full, abbrev]) => [abbrev, full])
+);
+
+/** Returns true if the job location matches a user-preferred location by state. */
+function locationMatchesPreference(jobLoc: string, userPref: string): boolean {
+  const jl = jobLoc.toLowerCase();
+  const up = userPref.toLowerCase().trim();
+
+  // Direct substring match
+  if (jl.includes(up) || up.includes(jl)) return true;
+
+  // Remote keyword
+  if (up === 'remote') return false; // handled by remote bonus
+
+  // Resolve user pref to abbreviation
+  const userAbbrev = STATE_FULL_TO_ABBREV[up] ?? (STATE_ABBREV_TO_FULL[up] ? up : undefined);
+  // Resolve user pref to full name
+  const userFull = STATE_ABBREV_TO_FULL[up] ?? (STATE_FULL_TO_ABBREV[up] ? up : undefined);
+
+  if (userAbbrev) {
+    // Match ", CA" or " CA" or "CA," patterns in job location
+    const abbrevPattern = new RegExp(`(\\b|,\\s*)${userAbbrev}(\\b|,|$)`, 'i');
+    if (abbrevPattern.test(jl)) return true;
+  }
+  if (userFull && jl.includes(userFull)) return true;
+
+  return false;
+}
+
+// ─── Intern/Co-op Term Expansion ─────────────────────────────────────────────
+
+const INTERN_SYNONYMS = ['intern', 'internship', 'co-op', 'coop', 'co/op'];
+
+function roleMatchesJob(role: string, jobText: string, jobTitle: string): boolean {
+  if (jobText.includes(role) || jobTitle.includes(role)) return true;
+
+  // Expand intern/co-op synonyms
+  const isInternRole = INTERN_SYNONYMS.some((t) => role.includes(t));
+  if (isInternRole) {
+    return INTERN_SYNONYMS.some((t) => jobText.includes(t) || jobTitle.includes(t));
+  }
+  return false;
 }
 
 // ─── Batch Match Scoring ──────────────────────────────────────────────────────
@@ -173,13 +234,14 @@ function heuristicScore(job: Job, resume: ResumeData, profile: UserProfile): num
   let score = 50;
 
   const jobText = `${job.title} ${job.description}`.toLowerCase();
+  const jobTitle = job.title.toLowerCase();
   const userSkills = resume.skills.map((s) => s.toLowerCase());
   const preferredRoles = profile.preferredRoles.map((r) => r.toLowerCase());
   const preferredLocations = profile.preferredLocations.map((l) => l.toLowerCase());
 
-  // Role match
+  // Role match (with co-op/intern synonym expansion)
   for (const role of preferredRoles) {
-    if (jobText.includes(role) || job.title.toLowerCase().includes(role)) {
+    if (roleMatchesJob(role, jobText, jobTitle)) {
       score += 15;
       break;
     }
@@ -192,10 +254,13 @@ function heuristicScore(job: Job, resume: ResumeData, profile: UserProfile): num
   }
   score += Math.min(25, skillMatches * 5);
 
-  // Location match
-  const jobLocation = job.location.toLowerCase();
+  // Location match (state-level aware)
   for (const loc of preferredLocations) {
-    if (jobLocation.includes(loc) || loc.includes('remote') && job.remote === 'remote') {
+    if (loc === 'remote' && job.remote === 'remote') {
+      score += 10;
+      break;
+    }
+    if (locationMatchesPreference(job.location, loc)) {
       score += 10;
       break;
     }
@@ -206,6 +271,53 @@ function heuristicScore(job: Job, resume: ResumeData, profile: UserProfile): num
   if (profile.remotePreference === 'hybrid' && job.remote === 'hybrid') score += 5;
 
   return Math.max(0, Math.min(100, score));
+}
+
+// ─── PDF Resume Parser ────────────────────────────────────────────────────────
+
+export async function parseResumeFromPDF(base64Pdf: string): Promise<ResumeData> {
+  const response = await getClient().messages.create({
+    model: 'claude-haiku-4-5',
+    max_tokens: 3000,
+    messages: [
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'document',
+            source: {
+              type: 'base64',
+              media_type: 'application/pdf',
+              data: base64Pdf,
+            },
+          } as unknown as Anthropic.MessageParam['content'][number],
+          {
+            type: 'text',
+            text: `Extract all information from this resume PDF and return ONLY valid JSON with this exact structure (no markdown, no extra text):
+{
+  "name": "",
+  "email": "",
+  "phone": "",
+  "website": "",
+  "linkedin": "",
+  "summary": "",
+  "experience": [{"company": "", "title": "", "startDate": "", "endDate": "", "location": "", "current": false, "bullets": []}],
+  "education": [{"institution": "", "degree": "", "field": "", "startDate": "", "endDate": "", "gpa": ""}],
+  "projects": [{"name": "", "description": "", "technologies": [], "link": "", "bullets": []}],
+  "skills": []
+}
+Leave fields empty string if not found. Return ONLY the JSON.`,
+          },
+        ],
+      },
+    ],
+  });
+
+  const block = response.content[0];
+  const text = block?.type === 'text' ? block.text.trim() : '';
+  const jsonMatch = text.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) throw new Error('Could not parse resume data from PDF');
+  return JSON.parse(jsonMatch[0]) as ResumeData;
 }
 
 // ─── Common Question Templates ────────────────────────────────────────────────

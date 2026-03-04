@@ -1,64 +1,64 @@
 export const Colors = {
-  // ─── Base ─────────────────────────────────────────────────────────────────
-  background: '#0A0A0F',
-  surface: '#13131F',
-  card: '#1C1C2E',
-  cardElevated: '#252540',
-  cardBorder: '#2E2E48',
+  // ─── Base (light green + white) ───────────────────────────────────────────
+  background: '#F5FAF6',
+  surface: '#FFFFFF',
+  card: '#FFFFFF',
+  cardElevated: '#EDF7F0',
+  cardBorder: '#C8E6D0',
 
-  // ─── Brand ────────────────────────────────────────────────────────────────
-  primary: '#7C6CF0',
-  primaryLight: '#A599F5',
-  primaryDark: '#5547C9',
-  primaryAlpha: 'rgba(124, 108, 240, 0.15)',
+  // ─── Brand (forest green) ─────────────────────────────────────────────────
+  primary: '#2E8B57',
+  primaryLight: '#4CAF75',
+  primaryDark: '#1E6B40',
+  primaryAlpha: 'rgba(46, 139, 87, 0.12)',
 
   // ─── Semantic ─────────────────────────────────────────────────────────────
-  success: '#00D4AA',
-  successLight: '#4DFFE0',
-  successAlpha: 'rgba(0, 212, 170, 0.15)',
+  success: '#2E8B57',
+  successLight: '#4CAF75',
+  successAlpha: 'rgba(46, 139, 87, 0.12)',
 
-  danger: '#FF4B6E',
-  dangerLight: '#FF8099',
-  dangerAlpha: 'rgba(255, 75, 110, 0.15)',
+  danger: '#DC3545',
+  dangerLight: '#F06B77',
+  dangerAlpha: 'rgba(220, 53, 69, 0.10)',
 
-  warning: '#FFD166',
-  warningLight: '#FFE5A0',
-  warningAlpha: 'rgba(255, 209, 102, 0.15)',
+  warning: '#D4820E',
+  warningLight: '#F0A832',
+  warningAlpha: 'rgba(212, 130, 14, 0.12)',
 
-  info: '#4FC3F7',
-  infoAlpha: 'rgba(79, 195, 247, 0.15)',
+  info: '#1A7FC1',
+  infoAlpha: 'rgba(26, 127, 193, 0.12)',
 
-  // ─── Text ─────────────────────────────────────────────────────────────────
-  textPrimary: '#FFFFFF',
-  textSecondary: '#9090AA',
-  textMuted: '#606078',
-  textInverse: '#0A0A0F',
+  // ─── Text (dark on light background) ─────────────────────────────────────
+  textPrimary: '#1A3025',
+  textSecondary: '#3D6B4F',
+  textMuted: '#7A9F85',
+  textInverse: '#FFFFFF',
 
   // ─── Borders ──────────────────────────────────────────────────────────────
-  border: '#2A2A3E',
-  borderLight: '#3A3A52',
+  border: '#C8E6D0',
+  borderLight: '#E0F2E8',
 
   // ─── Overlays ─────────────────────────────────────────────────────────────
-  overlay: 'rgba(0, 0, 0, 0.6)',
-  overlayLight: 'rgba(0, 0, 0, 0.3)',
+  overlay: 'rgba(0, 0, 0, 0.4)',
+  overlayLight: 'rgba(0, 0, 0, 0.15)',
 
   // ─── Gradients (as arrays for LinearGradient) ─────────────────────────────
   gradients: {
-    primary: ['#7C6CF0', '#5547C9'] as const,
-    success: ['#00D4AA', '#00A884'] as const,
-    danger: ['#FF4B6E', '#CC2A4C'] as const,
-    warning: ['#FFD166', '#FFA500'] as const,
-    card: ['#1C1C2E', '#252540'] as const,
-    dark: ['#0A0A0F', '#13131F'] as const,
-    swipeRight: ['rgba(0, 212, 170, 0.9)', 'rgba(0, 168, 132, 0.7)'] as const,
-    swipeLeft: ['rgba(255, 75, 110, 0.9)', 'rgba(204, 42, 76, 0.7)'] as const,
-    swipeUp: ['rgba(255, 209, 102, 0.9)', 'rgba(255, 165, 0, 0.7)'] as const,
+    primary: ['#2E8B57', '#1E6B40'] as const,
+    success: ['#2E8B57', '#1E6B40'] as const,
+    danger: ['#DC3545', '#B52535'] as const,
+    warning: ['#D4820E', '#A86008'] as const,
+    card: ['#FFFFFF', '#EDF7F0'] as const,
+    dark: ['#F5FAF6', '#E8F5EC'] as const,
+    swipeRight: ['rgba(46, 139, 87, 0.92)', 'rgba(30, 107, 64, 0.75)'] as const,
+    swipeLeft: ['rgba(220, 53, 69, 0.92)', 'rgba(181, 37, 53, 0.75)'] as const,
+    swipeUp: ['rgba(212, 130, 14, 0.92)', 'rgba(168, 96, 8, 0.75)'] as const,
   },
 
   // ─── Swipe Labels ─────────────────────────────────────────────────────────
-  apply: '#00D4AA',
-  skip: '#FF4B6E',
-  save: '#FFD166',
+  apply: '#2E8B57',
+  skip: '#DC3545',
+  save: '#D4820E',
 } as const;
 
 export type ColorKey = keyof typeof Colors;

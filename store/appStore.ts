@@ -36,9 +36,9 @@ interface AppStore {
   setJobsError: (error: string | null) => void;
 
   // ─── Actions: Swiping ────────────────────────────────────────────────────
-  swipeRight: (job: Job) => void;  // Apply
+  swipeRight: (job: Job) => void;  // Save
   swipeLeft: (job: Job) => void;   // Skip
-  swipeUp: (job: Job) => void;     // Save
+  swipeUp: (job: Job) => void;     // Apply
   nextJob: () => void;
 
   // ─── Actions: Preferences ────────────────────────────────────────────────
@@ -115,9 +115,9 @@ export const useAppStore = create<AppStore>()(
 
       // ─── Swiping ───────────────────────────────────────────────────────
       swipeRight: (job) => {
-        const applied = { ...job, status: 'applied' as const, appliedDate: new Date().toISOString() };
+        const saved = { ...job, status: 'saved' as const, savedDate: new Date().toISOString() };
         set((state) => ({
-          appliedJobs: [applied, ...state.appliedJobs],
+          savedJobs: [saved, ...state.savedJobs],
           jobs: state.jobs.filter((j) => j.id !== job.id),
         }));
       },
@@ -130,9 +130,9 @@ export const useAppStore = create<AppStore>()(
       },
 
       swipeUp: (job) => {
-        const saved = { ...job, status: 'saved' as const, savedDate: new Date().toISOString() };
+        const applied = { ...job, status: 'applied' as const, appliedDate: new Date().toISOString() };
         set((state) => ({
-          savedJobs: [saved, ...state.savedJobs],
+          appliedJobs: [applied, ...state.appliedJobs],
           jobs: state.jobs.filter((j) => j.id !== job.id),
         }));
       },

@@ -77,7 +77,7 @@ export default function ProfileScreen() {
       >
         {/* Profile Header */}
         <LinearGradient
-          colors={['#1C1C2E', '#252540']}
+          colors={['#EDF7F0', '#D5EFDC']}
           style={styles.profileHeader}
         >
           <View style={styles.avatarContainer}>
@@ -208,8 +208,8 @@ export default function ProfileScreen() {
         {/* API Keys */}
         <Section title="API Keys">
           <APIKeyRow
-            label="OpenAI (AI Features)"
-            configured={!!(userProfile.openaiApiKey)}
+            label="Anthropic (AI Features)"
+            configured={!!(userProfile.anthropicApiKey)}
             configuredText="✓ Connected"
             unconfiguredText="Not configured"
           />

@@ -125,7 +125,7 @@ export default function DiscoverScreen() {
     if (jobs[0]) swipeUp(jobs[0]);
   };
 
-  const hasAI = !!(userProfile?.openaiApiKey);
+  const hasAI = !!(userProfile?.anthropicApiKey);
   const isDemo = !(userProfile?.jsearchApiKey || userProfile?.museApiKey);
 
   return (

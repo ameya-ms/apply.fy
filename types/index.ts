@@ -48,7 +48,7 @@ export interface UserProfile {
   salaryMin?: number;
   salaryMax?: number;
   remotePreference: RemoteType | 'any';
-  openaiApiKey?: string;
+  anthropicApiKey?: string;
   jsearchApiKey?: string;
   museApiKey?: string;
   backendUrl?: string;

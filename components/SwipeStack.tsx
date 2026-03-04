@@ -33,12 +33,12 @@ export default function SwipeStack({
   const handleSwipe = useCallback(
     (job: Job, direction: SwipeDirection) => {
       if (direction === 'right') {
-        // Open job application link
-        WebBrowser.openBrowserAsync(job.applyUrl).catch(() => {});
         onSwipeRight(job);
       } else if (direction === 'left') {
         onSwipeLeft(job);
       } else {
+        // Open job application link on swipe-up (Apply)
+        WebBrowser.openBrowserAsync(job.applyUrl).catch(() => {});
         onSwipeUp(job);
       }
 
@@ -101,7 +101,7 @@ export default function SwipeStack({
 
       {/* Swipe Hint (shown only when there are jobs) */}
       <View style={styles.hintContainer}>
-        <Text style={styles.hintText}>← Skip  ·  Save ↑  ·  Apply →</Text>
+        <Text style={styles.hintText}>← Skip  ·  Apply ↑  ·  Save →</Text>
       </View>
     </GestureHandlerRootView>
   );
