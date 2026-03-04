@@ -1,0 +1,27 @@
+{
+  "name": "apply-fy-backend",
+  "version": "1.0.0",
+  "description": "apply.fy backend — job scraping, AI proxy, PDF compilation",
+  "main": "dist/server.js",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "compile-tex": "node dist/server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.0",
+    "axios": "^1.7.0",
+    "openai": "^4.73.0",
+    "express-rate-limit": "^7.4.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/cors": "^2.8.17",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.3.0",
+    "tsx": "^4.19.0"
+  }
+}
